@@ -52,6 +52,24 @@ _lxc_get_ip(){
     echo $result
 }
 
+ _lxc_validate_containerName(){
+        local containerName=$1
+        if [[ "" == "$containerName" ]]
+        then
+            echo "Please pass a container name.."
+            _lxc_list_containers
+            return 1
+        fi
+        local containerInfo=$(lxc-ls | \grep $containerName)
+        if [[ "" == "$containerInfo" ]]
+        then
+            echo "Invalid container name: $containerName"
+            _lxc_list_containers
+            return 1
+        fi
+        echo $containerInfo
+    }
+
  _lxc_attach_start_if_not_running_and_attach_as(){
     local containerName=$1
     local containerUser=${2:-$(whoami)}
