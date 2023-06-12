@@ -9,7 +9,7 @@ then
     exit 1
 fi
 
-if [[ "$#" != "2" ]]
+if [[ $# -lt 2 ]]
 then
     echo "
 
@@ -21,16 +21,16 @@ NOTE:
 
 Usage:
 
-$0 [container name] [other host IP or configured hostname] (optional: other host SSH port)
+$0 [other host IP or configured hostname] [container name] (optional: other host SSH port)
 
 
 "
     exit 1
 fi
 
-readonly otherHost="$1"
-
-readonly containerName="$2"
+otherHost="$1"
+containerName="$2"
+otherHostPort="${3:-22}"
 
 readonly containerPath=/var/lib/lxc/$containerName
 
@@ -53,12 +53,13 @@ Testing we can SSH as root to $otherHost
 "
 
 set +e
-ssh -p $otherHost -oBatchMode=yes exit
+ssh "$otherHost" -p "$otherHostPort" -o StrictHostKeyChecking=no exit
 canSshExitCode=$?
 set -e
-if (( $canSshExitCode != 0 ))
+if (( canSshExitCode != 0 ))
 then
-    ssh-copy-id $otherHost -p $otherHostPort
+    echo "Failed to SSH as root to $otherHost"
+    exit 1
 fi
 
 echo "Making sure we have pv installed"
@@ -70,7 +71,7 @@ fi
 echo "
 Making sure the container is not running on $otherHost
 "
-ssh -p $otherHostPort root@$otherHost -- "\lxc-stop -n $containerName || true"
+ssh -p "$otherHostPort" "$otherHost" -- "sudo \lxc-stop -n $containerName || true"
 
 echo "
 
@@ -78,7 +79,7 @@ Piping the container tar over SSH
 
 please wait ...
 "
-ssh $otherHost -p $otherHostPort --  "sudo bash -xc 'tar --numeric-owner -czf - $containerPath'" | pv | sudo tar -C / --numeric-owner -xzf -
+ssh "$otherHost" -p "$otherHostPort" --  "sudo bash -xc 'tar --numeric-owner -czf - $containerPath'" | pv | sudo tar -C / --numeric-owner -xzf -
 
 echo "
 
